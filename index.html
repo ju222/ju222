@@ -2,13 +2,188 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>주인공 캐릭터 장애물 피하기 게임</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; background-color: #f0f0f0; }
+        #score {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            font-size: 24px;
+            color: black;
+            font-family: Arial, sans-serif;
+        }
+        #hearts {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+        }
+        .heart {
+            width: 40px;
+            height: 40px;
+            margin-left: 5px;
+        }
+    </style>
 </head>
 <body>
-    <p>
-        hi
-    </p>
+    <canvas id="gameCanvas"></canvas>
+    <div id="score">시간: 0</div>
+    <div id="hearts">
+        <img id="heart1" class="heart" src="HEART.png" alt="Heart">
+        <img id="heart2" class="heart" src="HEART.png" alt="Heart">
+        <img id="heart3" class="heart" src="HEART.png" alt="Heart">
+    </div>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const hearts = document.querySelectorAll('.heart'); // 목숨 이미지들
+
+        const size = 60;  // 캐릭터 크기
+        // 캔버스 크기 설정
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // 게임 변수
+        let player = { x: canvas.width / 2, y: canvas.height - size, width: size, height: size, speed: 6 };
+        let obstacles = [];
+        let keys = { left: false, right: false };
+        let lives = 3; // 초기 목숨 설정
+
+        // 장애물 이미지 로드
+        const bombImage = new Image();
+        bombImage.src = 'bomb.png';  // bomb.png 파일 경로
+
+        // 장애물 설정
+        const obstacleSpeed = 10;
+        const obstacleFrequency = 50;  // 장애물 간격 (ms)
+        let lastObstacleTime = Date.now();
+
+        // 점수 변수 (시간)
+        let startTime = Date.now();  // 게임 시작 시간
+        let score = 0;  // 점수 (초 단위)
+
+        // 주인공 캐릭터 그리기
+        function drawPlayer() {
+            ctx.fillStyle = 'blue';
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+        }
+
+        // 장애물 그리기 (이미지 사용)
+        function drawObstacles() {
+            obstacles.forEach(obstacle => {
+                ctx.drawImage(bombImage, obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+            });
+        }
+
+        // 장애물 업데이트
+        function updateObstacles() {
+            obstacles.forEach(obstacle => {
+                obstacle.y += obstacleSpeed;
+            });
+
+            // 장애물이 화면 아래로 나갔을 때 제거
+            obstacles = obstacles.filter(obstacle => obstacle.y < canvas.height);
+        }
+
+        // 장애물 생성
+        function spawnObstacle() {
+            const obstacleWidth = 50;  // 장애물 너비
+            const obstacleX = Math.random() * (canvas.width - obstacleWidth);
+            obstacles.push({ x: obstacleX, y: -50, width: obstacleWidth, height: 50 });
+        }
+
+        // 플레이어 이동
+        function movePlayer() {
+            if (keys.left && player.x > 0) {
+                player.x -= player.speed;
+            }
+            if (keys.right && player.x + player.width < canvas.width) {
+                player.x += player.speed;
+            }
+        }
+
+        // 충돌 체크
+        function checkCollisions() {
+            for (let i = 0; i < obstacles.length; i++) {
+                const obstacle = obstacles[i];
+                if (player.x < obstacle.x + obstacle.width &&
+                    player.x + player.width > obstacle.x &&
+                    player.y < obstacle.y + obstacle.height &&
+                    player.y + player.height > obstacle.y) {
+                    // 충돌 발생 시, 충돌한 폭탄을 제거
+                    obstacles.splice(i, 1);  // 충돌한 폭탄을 obstacles 배열에서 제거
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // 목숨 하나 차감
+        function loseLife() {
+            if (lives > 0) {
+                lives--;  // 목숨 차감
+                hearts[lives].style.display = 'none';  // 목숨 이미지 숨기기
+            }
+            if (lives === 0) {
+                gameOver(); // 목숨이 0이면 게임 종료
+            }
+        }
+
+        // 게임 오버 처리
+        function gameOver() {
+            alert("게임 오버! 점수: " + score + "초");
+            // 게임 종료 후 페이지 새로고침
+            document.location.reload();  // 페이지 새로고침으로 게임 재시작
+        }
+
+        // 점수 업데이트
+        function updateScore() {
+            score = Math.floor((Date.now() - startTime) / 1000);
+            scoreElement.textContent = `점수: ${score}점`;
+        }
+
+        // 게임 루프
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);  // 화면 지우기
+
+
+            if (checkCollisions()) {  // 충돌이 있으면 목숨 차감
+                loseLife();
+            }
+            movePlayer();  // 플레이어 이동
+            updateObstacles();  // 장애물 업데이트
+            drawPlayer();  // 주인공 캐릭터 그리기
+            drawObstacles();  // 장애물 그리기
+            updateScore();  // 점수 업데이트
+
+            // 장애물 생성 주기
+            if (Date.now() - lastObstacleTime > obstacleFrequency) {
+                spawnObstacle();
+                lastObstacleTime = Date.now();
+            }
+
+            requestAnimationFrame(gameLoop);  // 다음 프레임 호출
+        }
+
+        // 키 이벤트 처리
+        window.addEventListener('keydown', (event) => {
+            if (event.key === 'ArrowLeft') keys.left = true;
+            if (event.key === 'ArrowRight') keys.right = true;
+        });
+
+        window.addEventListener('keyup', (event) => {
+            if (event.key === 'ArrowLeft') keys.left = false;
+            if (event.key === 'ArrowRight') keys.right = false;
+        });
+
+        // 이미지 로드 완료 후 게임 시작
+        bombImage.onload = () => {
+            gameLoop();
+        };
+
+    </script>
 </body>
 </html>
